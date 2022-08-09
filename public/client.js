@@ -32,8 +32,6 @@ const id = makeid();
 document.addEventListener("DOMContentLoaded", () => {
 
   const remoteVideo = document.querySelector("video#example");
-  remoteVideo.autoplay = true;
-  remoteVideo.muted = true;
 
   const setup = async (offer) => {
     // const offer = await requestPeerConnection();
@@ -48,6 +46,18 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log(localPeerConnection.getReceivers());
       const remoteStream = new MediaStream(localPeerConnection.getReceivers().map(receiver => receiver.track));
       remoteVideo.srcObject = remoteStream;
+      // const playPromise = remoteVideo.play();
+
+      // playPromise.then(() => {
+      //   emits('onProgressRewind', true)
+      // })
+      //   .catch(() => {
+      //     if (video.paused) {
+      //       video.play()
+      //       emits('onProgressRewind', true)
+      //     }
+      //   });
+
 
       const originalAnswer = await localPeerConnection.createAnswer();
       const updatedAnswer = new RTCSessionDescription({
