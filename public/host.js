@@ -40,26 +40,67 @@ const lasticecandidate = () => {
 peerConnection.onicecandidate = handleicecandidate(lasticecandidate);
 peerConnection.onconnectionstatechange = handleconnectionstatechange;
 peerConnection.oniceconnectionstatechange = handleiceconnectionstatechange;
+var audioInputs = [];
+var videoInputs = [];
+var audioInputSelect = document.querySelector('select#audio-input');
+var videoInputSelect = document.querySelector('select#video-input');
 
-const stream = navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: true,
-}).then(stream => {
-    stream.getTracks().forEach(track => peerConnection.addTrack(
-        track,
-        stream,
-    ));
-    console.log(peerConnection.getSenders());
-    console.log(stream.getTracks());
-    // peerConnection.addStream(stream);
-    setInterval(async () => {
-        await getAllPendingOffers()
-        // sendmsg('hello')
-    }, 4000)
-    clickcreateoffer()
-}).catch(err => {
-    console.log(err);
-});
+
+const drawInputsSelects = () => {
+    audioInputSelect = document.querySelector('select#audio-input');
+    videoInputSelect = document.querySelector('select#video-input');
+    audioInputs.forEach(audioInput => {
+        const option = document.createElement('option');
+        option.value = audioInput.deviceId;
+        option.text = audioInput.label;
+        audioInputSelect.appendChild(option);
+    })
+
+    videoInputs.forEach(videoInput => {
+        const option = document.createElement('option');
+        option.value = videoInput.deviceId;
+        option.text = videoInput.label;
+        videoInputSelect.appendChild(option);
+    })
+}
+
+navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+        devices.forEach(device => {
+            if (device.kind === 'audioinput') {
+                audioInputs.push(device);
+            } else if (device.kind === 'videoinput') {
+                videoInputs.push(device);
+            }
+        });
+        drawInputsSelects();
+    });
+})
+
+const setup = () => {
+    const audioId = audioInputSelect.value;
+    const videoId = videoInputSelect.value;
+    const stream = navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: audioId },
+        video: { deviceId: videoId },
+    }).then(stream => {
+        stream.getTracks().forEach(track => peerConnection.addTrack(
+            track,
+            stream,
+        ));
+        console.log(peerConnection.getSenders());
+        console.log(stream.getTracks());
+        setInterval(async () => {
+            await getAllPendingOffers()
+            // sendmsg('hello')
+        }, 4000)
+        clickcreateoffer()
+    }).catch(err => {
+        console.log(err);
+    });
+
+}
+
 var dataChannel;
 
 const createOfferDone = (offer) => {
@@ -118,3 +159,8 @@ const getAllPendingOffers = async () => {
             })
         })
 }
+
+
+window.onload = () => {
+    document.querySelector('button#setup').onclick = setup;
+};
