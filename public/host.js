@@ -4,7 +4,6 @@
 //     }]
 // };
 
-const peerConnection = new RTCPeerConnection();
 
 function handleicecandidate(lasticecandidate) {
     return function (event) {
@@ -26,24 +25,30 @@ function handleiceconnectionstatechange(event) {
     console.log('ice connection state: ' + event.target.iceConnectionState);
 }
 
-const lasticecandidate = () => {
-    offer = peerConnection.localDescription;
-    fetch('http://localhost:3000/connections/', {
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        method: 'POST',
-        body: JSON.stringify(offer),
-    })
+const ws = new WebSocket('ws://192.168.5.59:8080');
+const peerConnections = [];
+
+const lasticecandidate = (id) => {
+    const offer = peerConnections[id].localDescription;
+    // fetch('http://localhost:3000/connections/', {
+    //     headers: {
+    //         'Content-Type': 'application/json'
+    //     },
+    //     method: 'POST',
+    //     body: JSON.stringify(offer),
+    // })
+    console.log({ id, offer })
+    ws.send(JSON.stringify({ id, offer }))
 }
 
-peerConnection.onicecandidate = handleicecandidate(lasticecandidate);
-peerConnection.onconnectionstatechange = handleconnectionstatechange;
-peerConnection.oniceconnectionstatechange = handleiceconnectionstatechange;
+// peerConnection.onicecandidate = handleicecandidate(lasticecandidate);
+// peerConnection.onconnectionstatechange = handleconnectionstatechange;
+// peerConnection.oniceconnectionstatechange = handleiceconnectionstatechange;
 var audioInputs = [];
 var videoInputs = [];
 var audioInputSelect = document.querySelector('select#audio-input');
 var videoInputSelect = document.querySelector('select#video-input');
+var stream;
 
 
 const drawInputsSelects = () => {
@@ -77,45 +82,108 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream =>
     });
 })
 
+const createOffer = (params) => {
+    const ids = params.ids;
+    console.log(ids)
+
+    for (const id of ids) {
+        if (!(id in peerConnections)) {
+            const peerConnection = new RTCPeerConnection();
+            peerConnections[id] = peerConnection;
+            peerConnections[id].onicecandidate = function (event) {
+                if (event.candidate != null) {
+                    console.log('new ice candidate');
+                } else {
+                    console.log('all ice candidates');
+                    lasticecandidate(id);
+                }
+            };
+            peerConnection.onconnectionstatechange = handleconnectionstatechange;
+            peerConnection.oniceconnectionstatechange = handleiceconnectionstatechange;
+            peerConnections[id].createDataChannel('dataChannel')
+            stream.getTracks().forEach(track => peerConnection.addTrack(
+                track,
+                stream,
+            ));
+
+            const createOfferPromise = peerConnections[id].createOffer();
+            createOfferPromise.then((offer) => {
+                setLocalPromise = peerConnections[id].setLocalDescription(offer);
+                setLocalPromise.then(() => {
+                    console.log('setLocalDone')
+                }, () => {
+                    console.log('setLocalFailed')
+                });
+
+            });
+        }
+    }
+}
+
+const connect = ({ id, answer }) => {
+    const setRemotePromise = peerConnections[id].setRemoteDescription(answer);
+    setRemotePromise.then(() => {
+        console.log('setRemoteDone for ' + id);
+    }, () => {
+        console.log('setRemoteFailed for ' + id);
+    });
+}
+
+const actions = {
+    'createOffer': createOffer,
+    'answer': connect,
+}
+
+const wsMessage = (event) => {
+    const msg = JSON.parse(event.data);
+    const action = msg.action;
+    console.log(msg)
+    console.log(action)
+    if (action === 'createOffer') {
+        createOffer(msg.params);
+    } else if (action === 'answer') {
+        connect(msg.params);
+    }
+}
+
 const setup = () => {
     const audioId = audioInputSelect.value;
     const videoId = videoInputSelect.value;
-    const stream = navigator.mediaDevices.getUserMedia({
+    navigator.mediaDevices.getUserMedia({
         audio: { deviceId: audioId },
         video: { deviceId: videoId },
-    }).then(stream => {
-        stream.getTracks().forEach(track => peerConnection.addTrack(
-            track,
-            stream,
-        ));
-        console.log(peerConnection.getSenders());
-        console.log(stream.getTracks());
-        setInterval(async () => {
-            await getAllPendingOffers()
-            // sendmsg('hello')
-        }, 4000)
-        clickcreateoffer()
+    }).then(newStream => {
+        stream = newStream
+
+
+        ws.send('master')
+        ws.onmessage = wsMessage
+
+        // setInterval(async () => {
+        //     await getAllPendingOffers()
+        //     // sendmsg('hello')
+        // }, 4000)
+        // clickcreateoffer()
     }).catch(err => {
         console.log(err);
     });
 
 }
 
-var dataChannel;
+// var dataChannel;
 
-const createOfferDone = (offer) => {
-    setLocalPromise = peerConnection.setLocalDescription(offer);
-    setLocalPromise.then(() => {
-        console.log('setLocalDone')
-    }, () => {
-        console.log('setLocalFailed')
-    });
+// const createOfferDone = (offer) => {
+//     setLocalPromise = peerConnection.setLocalDescription(offer);
+//     setLocalPromise.then(() => {
+//         console.log('setLocalDone')
+//     }, () => {
+//         console.log('setLocalFailed')
+//     });
+// }
 
-}
-
-function datachannelopen() {
-    console.log('datachannelopen');
-}
+// function datachannelopen() {
+//     console.log('datachannelopen');
+// }
 
 // function datachannelmessage(message) {
 //     console.log('datachannelmessage');
@@ -123,42 +191,32 @@ function datachannelopen() {
 // }
 
 
-function clickcreateoffer() {
-    dataChannel = peerConnection.createDataChannel('dataChannel');
-    dataChannel.onopen = datachannelopen;
-    // dataChannel.onmessage = datachannelmessage;
+// function clickcreateoffer() {
+//     dataChannel = peerConnection.createDataChannel('dataChannel');
+//     dataChannel.onopen = datachannelopen;
+//     // dataChannel.onmessage = datachannelmessage;
 
-    const createOfferPromise = peerConnection.createOffer();
-    createOfferPromise.then(createOfferDone);
-}
+//     const createOfferPromise = peerConnection.createOffer();
+//     createOfferPromise.then(createOfferDone);
+// }
 
-function sendmsg(text) {
-    dataChannel.send(text);
-}
-
-
-const connect = (answer) => {
-    const setRemotePromise = peerConnection.setRemoteDescription(answer);
-    setRemotePromise.then(() => {
-        console.log('setRemoteDone')
-    }, () => {
-        console.log('setRemoteFailed')
-    });
-}
+// function sendmsg(text) {
+//     dataChannel.send(text);
+// }
 
 
-const getAllPendingOffers = async () => {
-    await fetch('http://localhost:3000/remote-descriptions', {
-        method: 'GET',
-    })
-        .then(response => response.json())
-        .then(data => {
-            data.forEach(offer => {
-                console.log(offer)
-                connect(offer);
-            })
-        })
-}
+// const getAllPendingOffers = async () => {
+//     await fetch('http://localhost:3000/remote-descriptions', {
+//         method: 'GET',
+//     })
+//         .then(response => response.json())
+//         .then(data => {
+//             data.forEach(offer => {
+//                 console.log(offer)
+//                 connect(offer);
+//             })
+//         })
+// }
 
 
 window.onload = () => {

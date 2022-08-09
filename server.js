@@ -32,11 +32,89 @@ const wss = new WebSocketServer({
 });
 
 
+// const broadcast = (data) => {
+
+//     wss.clients.forEach(function each(client) {
+//         if (client.isMaster) {
+//             masterWS = client
+//         }
+//         else {
+
+//         }
+//     });
+// }
+
+const listners = {}
+var masterWS = null
+
 wss.on('connection', function connection(ws) {
-    ws.on('message', function incoming(message) {
-        console.log('received: %s', message);
+    /* message structure
+    {
+        id: '',
+        data: {...}
+    }
+    */
+    ws.on('message', function incoming(data, isBinary) {
+        const msg = isBinary ? data : data.toString();
+        if (msg === 'master') {
+            ws.isMaster = true
+            masterWS = ws
+            masterWS.send(JSON.stringify({
+                action: 'createOffer',
+                params: {
+                    ids: Object.keys(listners)
+                }
+            }))
+            console.log("master connected")
+            return
+        }
+        const message = JSON.parse(msg)
+        if (ws.isMaster) {
+            const id = message.id
+            const offer = message.offer
+            listners[id].send(JSON.stringify(offer))
+            console.log("offer sent to " + id)
+            return
+        }
+
+        if (!ws.isMaster && message.id) {
+            if (!(message.id in listners)) {
+                // ws.pendingAnswer = false
+                ws.clientId = message.id
+                listners[message.id] = ws
+                if (masterWS !== null) {
+                    masterWS.send(JSON.stringify({
+                        action: 'createOffer',
+                        params: {
+                            ids: Object.keys(listners)
+                        }
+                    }))
+                }
+                console.log("new client connected")
+                return
+            } else {
+                const id = message.id
+                const answer = message.answer
+                if (masterWS !== null) {
+                    masterWS.send(JSON.stringify({
+                        action: 'answer',
+                        params: {
+                            id,
+                            answer
+                        }
+                    }))
+                }
+                console.log("answer sent to " + id)
+                return
+            }
+        }
+    })
+
+    ws.on('close', function close() {
+        console.log('close')
     })
 });
+
 
 
 // app.post('/connections', function (req, res) {
