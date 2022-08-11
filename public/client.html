@@ -2,16 +2,66 @@
 <html>
 
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>offering webrtc without signaling server demo</title>
-<script src="client.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>offering webrtc without signaling server demo</title>
+    <script src="client.js"></script>
 </head>
 
 <body>
-<video id="example" autoplay muted></video>
+    <div class="fade"></div>
+    <button id="main-btn">Launch Fullscreen</button>
+    <video id="example" autoplay muted></video>
 
 </body>
 
+
+<style>
+    html {
+        overflow: hidden;
+        font-family: Arial, Helvetica, sans-serif;
+        background-color: #121212;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        font-size: 100%;
+        font: inherit;
+        vertical-align: baseline;
+        box-sizing: border-box;
+        word-break: break-word;
+    }
+
+    #main-btn {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2.4em;
+        padding: 1em;
+        border-radius: 8px;
+        color: white;
+        background-color: #121212;
+        cursor: pointer;
+        z-index: 99;
+    }
+
+    .fade {
+        position: fixed;
+        height: 100%;
+        width: 100%;
+        background-color: #000000;
+        opacity: 0.5;
+        pointer-events: none;
+        backdrop-filter: blur(8);
+    }
+
+    #example {
+        width: 100%;
+        height: 100%;
+    }
+</style>
 
 </html>

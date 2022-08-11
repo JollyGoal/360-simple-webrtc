@@ -82,10 +82,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream =>
     });
 })
 
-const createOffer = (params) => {
-    const ids = params.ids;
-    console.log(ids)
-
+const createOffer = ({ ids }) => {
     for (const id of ids) {
         if (!(id in peerConnections)) {
             const peerConnection = new RTCPeerConnection();
@@ -121,17 +118,27 @@ const createOffer = (params) => {
 }
 
 const connect = ({ id, answer }) => {
-    const setRemotePromise = peerConnections[id].setRemoteDescription(answer);
-    setRemotePromise.then(() => {
-        console.log('setRemoteDone for ' + id);
-    }, () => {
-        console.log('setRemoteFailed for ' + id);
-    });
+    if (id in peerConnections) {
+        const setRemotePromise = peerConnections[id].setRemoteDescription(answer);
+        setRemotePromise.then(() => {
+            console.log('setRemoteDone for ' + id);
+        }, () => {
+            console.log('setRemoteFailed for ' + id);
+        });
+    }
+}
+
+const remove = ({ id }) => {
+    if (id in peerConnections) {
+        peerConnections[id].close()
+        peerConnections[id] = null
+    }
 }
 
 const actions = {
     'createOffer': createOffer,
     'answer': connect,
+    'remove': remove
 }
 
 const wsMessage = (event) => {
@@ -143,6 +150,8 @@ const wsMessage = (event) => {
         createOffer(msg.params);
     } else if (action === 'answer') {
         connect(msg.params);
+    } else if (action === 'remove') {
+        remove(msg.params)
     }
 }
 

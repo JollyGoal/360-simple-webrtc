@@ -78,9 +78,9 @@ wss.on('connection', function connection(ws) {
         }
 
         if (!ws.isMaster && message.id) {
+            ws.clientId = message.id
             if (!(message.id in listners)) {
                 // ws.pendingAnswer = false
-                ws.clientId = message.id
                 listners[message.id] = ws
                 if (masterWS !== null) {
                     masterWS.send(JSON.stringify({
@@ -90,28 +90,43 @@ wss.on('connection', function connection(ws) {
                         }
                     }))
                 }
-                console.log("new client connected")
+                console.log("new client connected ", message.id)
+                console.log("clients count ", Object.keys(listners).length)
                 return
             } else {
-                const id = message.id
                 const answer = message.answer
                 if (masterWS !== null) {
                     masterWS.send(JSON.stringify({
                         action: 'answer',
                         params: {
-                            id,
+                            id: message.id,
                             answer
                         }
                     }))
                 }
-                console.log("answer sent to " + id)
+                console.log("answer sent to " + message.id)
                 return
             }
         }
     })
 
     ws.on('close', function close() {
-        console.log('close')
+        console.log(ws.isMaster)
+        if (ws.isMaster) {
+            masterWS = null
+        } else {
+            delete listners[ws.clientId]
+            if (masterWS !== null && ws.clientId) {
+                masterWS.send(JSON.stringify({
+                    action: 'remove',
+                    params: {
+                        id: ws.clientId
+                    }
+                }))
+            }
+            console.log('removed ', ws.clientId)
+            console.log("clients count ", Object.keys(listners).length)
+        }
     })
 });
 

@@ -33,6 +33,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const remoteVideo = document.querySelector("video#example");
 
+  const btn = document.querySelector('#main-btn')
+
+  btn.addEventListener('click', () => {
+    remoteVideo.requestFullscreen()
+  })
+
   const setup = async (offer) => {
     // const offer = await requestPeerConnection();
 
